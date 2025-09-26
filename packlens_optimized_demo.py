@@ -433,16 +433,22 @@ class OptimizedAgent:
         self.last_danger_alert = 0
         self.lock = threading.Lock()  # Thread safety
 
-    def observe_audio(self, t, label):
+    def observe_audio(self, t, label, video_time=None):
         """Thread-safe audio observation"""
         with self.lock:
             self.audio_alerts.append((t, label))
+            time_display = video_time if video_time is not None else t
+            
             if label == "growl":
-                self.buffer.put("🚨 AUDIO: Growling detected - DANGER!")
+                msg = "🚨 AUDIO: Growling detected - DANGER!"
+                self.buffer.put(msg)
+                print(f"[{time_display:.1f}s] {msg}")  # Immediate console output for audio
             elif label == "bark":
                 recent_barks = len([x for x in self.audio_alerts if x[1] == "bark" and t - x[0] < 2])
                 if recent_barks > 2:
-                    self.buffer.put("⚠️ AUDIO: Rapid barking - High stress!")
+                    msg = "⚠️ AUDIO: Rapid barking - High stress!"
+                    self.buffer.put(msg)
+                    print(f"[{time_display:.1f}s] {msg}")  # Immediate console output for audio
 
     def observe_vision_analysis(self, t, analysis, source="LOCAL"):
         """Thread-safe vision analysis observation"""
@@ -450,24 +456,80 @@ class OptimizedAgent:
             return
             
         with self.lock:
-            danger_words = ["danger", "aggressive", "separate"]
-            caution_words = ["caution", "alert", "anxious", "monitor"]
+            # Parse the structured LLM response
+            parsed = self._parse_analysis(analysis)
+            state = parsed.get('state', 'Unknown')
+            alert_level = parsed.get('alert', 'SAFE')
+            action = parsed.get('action', 'Continue supervision')
+            confidence = parsed.get('confidence', 0.8)
             
             # Check recent audio
             recent_audio = [x[1] for x in self.audio_alerts if t - x[0] < 3]
             audio_warning = "growl" in recent_audio or recent_audio.count("bark") > 2
             
-            if any(word in analysis.lower() for word in danger_words) or audio_warning:
+            # Create clean message format
+            if alert_level == "DANGER" or audio_warning:
                 if t - self.last_danger_alert > 2:  # Reduced spam interval
                     prefix = "🚨 DANGER" if not audio_warning else "🚨 DANGER + AUDIO"
-                    self.buffer.put(f"{prefix}: {analysis}")
+                    msg = f"{prefix}: {state} ({confidence:.1f}) - {action}"
+                    self.buffer.put(msg)
                     self.last_danger_alert = t
-            elif any(word in analysis.lower() for word in caution_words):
-                self.buffer.put(f"⚠️ CAUTION: {analysis}")
+            elif alert_level == "CAUTION" or "caution" in analysis.lower() or "alert" in analysis.lower():
+                msg = f"⚠️ CAUTION: {state} ({confidence:.1f}) - {action}"
+                self.buffer.put(msg)
             else:
-                self.buffer.put(f"✅ SAFE: {analysis}")
+                msg = f"✅ SAFE: {state} ({confidence:.1f}) - {action}"
+                self.buffer.put(msg)
+    
+    def _parse_analysis(self, analysis):
+        """Parse structured LLM analysis response"""
+        try:
+            # Extract structured data from LLM response
+            state = "Playful"  # Default
+            alert = "SAFE"     # Default
+            action = "Continue supervision"  # Default
+            confidence = 0.8   # Default
+            
+            # Parse **State**: format
+            if "**State**:" in analysis:
+                state_part = analysis.split("**State**:")[1].split("**")[0].strip()
+                if "(" in state_part and ")" in state_part:
+                    state = state_part.split("(")[0].strip()
+                    conf_str = state_part.split("(")[1].split(")")[0]
+                    try:
+                        confidence = float(conf_str)
+                    except:
+                        confidence = 0.8
+                else:
+                    state = state_part
+            
+            # Parse **Alert**: format
+            if "**Alert**:" in analysis:
+                alert = analysis.split("**Alert**:")[1].split("**")[0].strip()
+            
+            # Parse **Action**: format
+            if "**Action**:" in analysis:
+                action = analysis.split("**Action**:")[1].strip()
+                # Clean up action text
+                if "**" in action:
+                    action = action.split("**")[0].strip()
+            
+            return {
+                'state': state,
+                'alert': alert,
+                'action': action,
+                'confidence': confidence
+            }
+        except Exception as e:
+            # Fallback parsing
+            return {
+                'state': 'Playful',
+                'alert': 'SAFE',
+                'action': 'Continue supervision',
+                'confidence': 0.8
+            }
 
-    def tick(self, now):
+    def tick(self, now, video_time=None):
         """Thread-safe message processing"""
         with self.lock:
             if not self.buffer.empty() and (now - self.last_spoken) > self.cooldown:
@@ -475,6 +537,9 @@ class OptimizedAgent:
                     msg = self.buffer.get_nowait()
                     self.msgs.appendleft((now, msg))
                     self.last_spoken = now
+                    # Print to console with video time
+                    time_display = video_time if video_time is not None else now
+                    print(f"[{time_display:.1f}s] {msg}")
                     return msg
                 except queue.Empty:
                     pass
@@ -600,6 +665,14 @@ def run(source, conf=0.35, cooldown=1.0, save_path=None, mode="local", device="a
     audio_events = deque(audio_analyzer.events)
     print(f"[Info] Audio events: {len(audio_events)}")
     print("[Info] Press ESC to quit")
+    
+    # Console output legend
+    print("\n📋 Real-time Analysis Output:")
+    print("🚨 [DANGER] - Immediate attention needed")
+    print("⚠️ [CAUTION] - Monitor closely")
+    print("✅ [SAFE] - Normal behavior")
+    print("🔊 [AUDIO] - Sound events detected")
+    print("=" * 50)
 
     while True:
         frame_start = time.time()
@@ -643,7 +716,7 @@ def run(source, conf=0.35, cooldown=1.0, save_path=None, mode="local", device="a
         current_time = time.time()
         while audio_events and audio_events[0][0] <= t_sec:
             _, audio_label = audio_events.popleft()
-            agent.observe_audio(current_time, audio_label)
+            agent.observe_audio(current_time, audio_label, t_sec)
 
         # Vision analysis (optimized)
         if tracks:
@@ -651,7 +724,7 @@ def run(source, conf=0.35, cooldown=1.0, save_path=None, mode="local", device="a
             if analysis:
                 agent.observe_vision_analysis(current_time, analysis, "LOCAL")
 
-        agent.tick(current_time)
+        agent.tick(current_time, t_sec)
 
         # Draw optimized visualization
         vis = frame.copy()
