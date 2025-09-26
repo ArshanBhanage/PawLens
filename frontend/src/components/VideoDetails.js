@@ -40,59 +40,77 @@ const VideoPlayer = ({ videoId, videoFilename, currentSegment, onTimeUpdate }) =
   const [isPlaying, setIsPlaying] = React.useState(false);
   const [currentTime, setCurrentTime] = React.useState(0);
 
-  // Handle segment playback and general time updates
+  // Separate effect for general video event handling
   React.useEffect(() => {
     if (videoRef.current) {
       const video = videoRef.current;
-      let segmentTimeoutId = null;
       
+      const handlePlay = () => setIsPlaying(true);
+      const handlePause = () => setIsPlaying(false);
       const handleTimeUpdate = () => {
         const time = video.currentTime;
         setCurrentTime(time);
         onTimeUpdate && onTimeUpdate(time);
-        
-        // If we're playing a segment and reached the end time, pause
-        if (currentSegment && time >= currentSegment.endTime - 0.1) {
-          video.pause();
-          setIsPlaying(false);
-        }
       };
       
-      const handlePlay = () => setIsPlaying(true);
-      const handlePause = () => setIsPlaying(false);
-      
-      // Add event listeners
-      video.addEventListener('timeupdate', handleTimeUpdate);
       video.addEventListener('play', handlePlay);
       video.addEventListener('pause', handlePause);
-      
-      // If we have a current segment, start playing it
-      if (currentSegment) {
-        const startSegmentPlayback = async () => {
-          try {
-            video.currentTime = currentSegment.startTime;
-            await video.play();
-            setIsPlaying(true);
-          } catch (error) {
-            console.log('Playback failed:', error);
-            setIsPlaying(false);
-          }
-        };
-        
-        // Small delay to ensure video is ready
-        segmentTimeoutId = setTimeout(startSegmentPlayback, 100);
-      }
+      video.addEventListener('timeupdate', handleTimeUpdate);
       
       return () => {
-        video.removeEventListener('timeupdate', handleTimeUpdate);
         video.removeEventListener('play', handlePlay);
         video.removeEventListener('pause', handlePause);
-        if (segmentTimeoutId) {
-          clearTimeout(segmentTimeoutId);
-        }
+        video.removeEventListener('timeupdate', handleTimeUpdate);
       };
     }
-  }, [currentSegment, onTimeUpdate]);
+  }, [onTimeUpdate]);
+
+  // Separate effect for segment playback
+  React.useEffect(() => {
+    if (currentSegment && videoRef.current) {
+      const video = videoRef.current;
+      let isSegmentActive = true;
+      
+      const playSegment = async () => {
+        try {
+          // Set the start time
+          video.currentTime = currentSegment.startTime;
+          
+          // Create a one-time listener for this specific segment
+          const segmentTimeUpdateHandler = () => {
+            if (!isSegmentActive) return;
+            
+            const currentTime = video.currentTime;
+            
+            // Check if we've reached the end of the segment
+            if (currentTime >= currentSegment.endTime - 0.1) {
+              video.pause();
+              video.removeEventListener('timeupdate', segmentTimeUpdateHandler);
+              isSegmentActive = false;
+            }
+          };
+          
+          // Add the segment-specific listener
+          video.addEventListener('timeupdate', segmentTimeUpdateHandler);
+          
+          // Start playing
+          await video.play();
+          
+        } catch (error) {
+          console.log('Segment playback failed:', error);
+          isSegmentActive = false;
+        }
+      };
+      
+      // Small delay to ensure video is ready
+      const timeoutId = setTimeout(playSegment, 100);
+      
+      return () => {
+        isSegmentActive = false;
+        clearTimeout(timeoutId);
+      };
+    }
+  }, [currentSegment]);
 
   return (
     <div className="card p-6 mb-6">
@@ -111,9 +129,6 @@ const VideoPlayer = ({ videoId, videoFilename, currentSegment, onTimeUpdate }) =
           ref={videoRef}
           className="w-full h-64 object-contain"
           controls
-          onPlay={() => setIsPlaying(true)}
-          onPause={() => setIsPlaying(false)}
-          onTimeUpdate={(e) => setCurrentTime(e.target.currentTime)}
         >
           <source src={`/api/videos/${videoId}/video`} type="video/mp4" />
           Your browser does not support the video tag.
