@@ -19,3 +19,4 @@ soundfile
 flask
 flask-cors
 werkzeug
+python-dotenv

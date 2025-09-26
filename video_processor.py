@@ -18,6 +18,10 @@ import base64
 import json
 import sqlite3
 import hashlib
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 from datetime import datetime
 from pathlib import Path
 import requests

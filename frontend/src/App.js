@@ -10,6 +10,7 @@ import VideoDetails from './components/VideoDetails';
 import UploadArea from './components/UploadArea';
 import StatsOverview from './components/StatsOverview';
 import LoadingSpinner from './components/LoadingSpinner';
+import DogProfile from './components/DogProfile';
 
 function App() {
   const [videos, setVideos] = useState([]);
@@ -108,6 +109,7 @@ function App() {
                 path="/" 
                 element={
                   <div className="space-y-8">
+                    <DogProfile />
                     <StatsOverview stats={stats} />
                     <UploadArea onUpload={handleVideoUpload} />
                     <VideoGrid videos={videos} />
@@ -118,6 +120,7 @@ function App() {
                 path="/video/:id" 
                 element={<VideoDetails />} 
               />
+              <Route path="/profile" element={<DogProfile />} />
             </Routes>
           )}
         </main>

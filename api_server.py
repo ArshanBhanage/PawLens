@@ -21,8 +21,12 @@ from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 import uuid
+from dotenv import load_dotenv
 
 from video_processor import VideoProcessor, BackgroundProcessor
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Custom JSON encoder to handle bytes and other non-serializable objects
 class SafeJSONEncoder(json.JSONEncoder):
@@ -429,6 +433,159 @@ def get_stats():
             'error': str(e)
         }), 500
 
+@app.route('/api/dog-profile', methods=['GET'])
+def get_dog_profile():
+    """Get overall dog behavioral profile across all videos"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Get all behavioral scores from analysis_results table
+        cursor.execute('''
+            SELECT anxiety_level, playfulness, aggression, confidence, 
+                   energy_level, stress_indicators, overall_assessment, analysis_text
+            FROM analysis_results 
+            WHERE anxiety_level IS NOT NULL
+        ''')
+        
+        analyses = cursor.fetchall()
+        
+        if not analyses:
+            return safe_jsonify({
+                'success': False,
+                'error': 'No behavioral analysis data found'
+            }, 404)
+        
+        # Calculate averages
+        total_analyses = len(analyses)
+        avg_anxiety = sum(row[0] for row in analyses if row[0]) / total_analyses
+        avg_playfulness = sum(row[1] for row in analyses if row[1]) / total_analyses
+        avg_aggression = sum(row[2] for row in analyses if row[2]) / total_analyses
+        avg_confidence = sum(row[3] for row in analyses if row[3]) / total_analyses
+        avg_energy = sum(row[4] for row in analyses if row[4]) / total_analyses
+        avg_stress = sum(row[5] for row in analyses if row[5]) / total_analyses
+        
+        # Get recent assessments for breed analysis
+        recent_assessments = [row[6] for row in analyses if row[6]]
+        analysis_texts = [row[7] for row in analyses if row[7]]
+        
+        # Simple breed detection based on "white dog" mention and behavioral patterns
+        breed_info = analyze_breed_characteristics(avg_confidence, avg_energy, avg_playfulness, analysis_texts)
+        
+        # Get video count and date range
+        cursor.execute('SELECT COUNT(*), MIN(created_at), MAX(created_at) FROM videos')
+        video_stats = cursor.fetchone()
+        
+        conn.close()
+        
+        return safe_jsonify({
+            'success': True,
+            'profile': {
+                'behavioral_scores': {
+                    'anxiety': round(avg_anxiety, 1),
+                    'playfulness': round(avg_playfulness, 1),
+                    'aggression': round(avg_aggression, 1),
+                    'confidence': round(avg_confidence, 1),
+                    'energy': round(avg_energy, 1),
+                    'stress': round(avg_stress, 1)
+                },
+                'breed_info': breed_info,
+                'statistics': {
+                    'total_videos_analyzed': total_analyses,
+                    'total_videos': video_stats[0],
+                    'analysis_period': {
+                        'start': video_stats[1],
+                        'end': video_stats[2]
+                    }
+                },
+                'recent_assessments': recent_assessments[-3:] if recent_assessments else []
+            }
+        })
+        
+    except Exception as e:
+        return safe_jsonify({
+            'success': False,
+            'error': str(e)
+        }, 500)
+
+def analyze_breed_characteristics(confidence, energy, playfulness, analysis_texts):
+    """Analyze breed characteristics based on behavioral patterns"""
+    
+    # Look for breed mentions in analysis texts
+    breed_mentions = []
+    for text in analysis_texts:
+        if text:
+            text_lower = text.lower()
+            # Common white dog breeds
+            if any(breed in text_lower for breed in ['golden', 'retriever', 'labrador', 'lab']):
+                breed_mentions.append('Golden Retriever or Labrador')
+            elif any(breed in text_lower for breed in ['husky', 'siberian']):
+                breed_mentions.append('Siberian Husky')
+            elif any(breed in text_lower for breed in ['shepherd', 'german']):
+                breed_mentions.append('German Shepherd')
+            elif any(breed in text_lower for breed in ['poodle']):
+                breed_mentions.append('Poodle')
+    
+    # Behavioral-based breed analysis for white dogs
+    if confidence >= 7 and energy >= 7 and playfulness >= 7:
+        likely_breed = "Golden Retriever"
+        characteristics = [
+            "Highly confident and outgoing personality",
+            "High energy levels requiring regular exercise",
+            "Very playful and social with other dogs",
+            "Excellent family companion breed",
+            "Known for friendly, gentle temperament"
+        ]
+    elif confidence >= 6 and energy >= 8 and playfulness >= 6:
+        likely_breed = "Labrador Retriever"
+        characteristics = [
+            "Confident and energetic working breed",
+            "High exercise needs and stamina",
+            "Playful and eager to please",
+            "Excellent with children and families",
+            "Strong retrieving and swimming instincts"
+        ]
+    elif energy >= 8 and playfulness >= 7:
+        likely_breed = "Siberian Husky (White/Light colored)"
+        characteristics = [
+            "High energy sled dog breed",
+            "Very playful and pack-oriented",
+            "Requires significant daily exercise",
+            "Independent but social personality",
+            "Thick double coat, often white markings"
+        ]
+    elif confidence >= 8 and energy >= 6:
+        likely_breed = "German Shepherd (White variety)"
+        characteristics = [
+            "Highly confident and alert breed",
+            "Moderate to high energy levels",
+            "Loyal and protective nature",
+            "Intelligent working dog breed",
+            "White German Shepherds are less common but exist"
+        ]
+    else:
+        likely_breed = "Mixed Breed or White-coated breed"
+        characteristics = [
+            "Unique personality blend",
+            "Behavioral traits suggest friendly temperament",
+            "Well-socialized and adaptable",
+            "Could be mix of retriever, shepherd, or other breeds",
+            "Individual personality more important than breed"
+        ]
+    
+    return {
+        'likely_breed': likely_breed,
+        'confidence_level': 'Medium' if breed_mentions else 'Low',
+        'characteristics': characteristics,
+        'breed_notes': f"Analysis based on behavioral patterns from {len(analysis_texts)} video sessions. White coat color noted.",
+        'recommendations': [
+            "Continue regular socialization with other dogs",
+            "Maintain consistent exercise routine based on energy levels",
+            "Monitor stress indicators during new situations",
+            "Regular grooming for white coat maintenance"
+        ]
+    }
+
 # -------------------- Background Processing Integration --------------------
 
 def init_background_processor():
@@ -473,6 +630,7 @@ if __name__ == '__main__':
         print("   • POST /api/upload - Upload new video")
         print("   • POST /api/process/<path> - Process existing video")
         print("   • GET  /api/stats - Get statistics")
+        print("   • GET  /api/dog-profile - Get overall dog behavioral profile")
         print("=" * 60)
         
         app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)
