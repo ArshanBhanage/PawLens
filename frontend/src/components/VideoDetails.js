@@ -1,9 +1,223 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
-import { ArrowLeft, Clock, Volume2, Image, AlertTriangle, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Clock, Volume2, Image, AlertTriangle, CheckCircle, Play } from 'lucide-react';
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer } from 'recharts';
 import LoadingSpinner from './LoadingSpinner';
+
+// Helper function to parse key moments and extract timestamps
+const parseKeyMoments = (keyMomentsText) => {
+  if (!keyMomentsText) return [];
+  
+  const moments = [];
+  const lines = keyMomentsText.split('\n').filter(line => line.trim());
+  
+  lines.forEach(line => {
+    // Extract timestamp ranges like "1.5s-4.5s" or "16.5s"
+    const timeMatch = line.match(/(\d+\.?\d*)s(?:-(\d+\.?\d*)s)?/);
+    const frameMatch = line.match(/\(Frames? (\d+(?:,?\s*\d+)*(?:\s*and\s*\d+)?)\)/);
+    
+    if (timeMatch) {
+      const startTime = parseFloat(timeMatch[1]);
+      const endTime = timeMatch[2] ? parseFloat(timeMatch[2]) : startTime;
+      const frameNumbers = frameMatch ? frameMatch[1].split(/[,\s]+and\s+|[,\s]+/).map(f => parseInt(f.trim())) : [];
+      
+      moments.push({
+        startTime,
+        endTime,
+        frameNumbers,
+        description: line.replace(/^\d+\.\s*/, '').trim()
+      });
+    }
+  });
+  
+  return moments;
+};
+
+// Key Moments Frames Gallery Component
+const KeyMomentsFrames = ({ keyMoments, frames, videoId, videoDuration }) => {
+  const moments = parseKeyMoments(keyMoments);
+  
+  // Find frames that correspond to key moments
+  const getFramesForMoments = () => {
+    const keyFrames = [];
+    
+    moments.forEach((moment, momentIndex) => {
+      // Find frames within the time range
+      const relevantFrames = frames.filter(frame => 
+        frame.timestamp >= moment.startTime && frame.timestamp <= moment.endTime
+      ).slice(0, 3); // Limit to 3 frames per moment
+      
+      if (relevantFrames.length > 0) {
+        keyFrames.push({
+          moment: moment,
+          momentIndex: momentIndex + 1,
+          frames: relevantFrames
+        });
+      }
+    });
+    
+    return keyFrames;
+  };
+
+  const keyFrameGroups = getFramesForMoments();
+
+  if (keyFrameGroups.length === 0) return null;
+
+  return (
+    <div className="card p-6">
+      <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+        <Image className="h-5 w-5 mr-2 text-blue-600" />
+        Key Moments Frames
+      </h2>
+      
+      <div className="space-y-6">
+        {keyFrameGroups.map(({ moment, momentIndex, frames: momentFrames }) => (
+          <div key={momentIndex} className="border-l-4 border-blue-500 pl-4">
+            <div className="flex items-center space-x-2 mb-3">
+              <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded">
+                Moment {momentIndex}
+              </span>
+              <span className="text-sm text-gray-600">
+                {moment.startTime === moment.endTime 
+                  ? `${moment.startTime}s` 
+                  : `${moment.startTime}s - ${moment.endTime}s`}
+              </span>
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-3">
+              {momentFrames.map((frame, frameIndex) => (
+                <div key={frame.id} className="relative group">
+                  <img
+                    src={`/api/videos/${videoId}/frames/${frame.id}`}
+                    alt={`Frame at ${frame.timestamp}s`}
+                    className="w-full h-32 object-cover rounded-lg border border-gray-200 group-hover:border-blue-400 transition-colors"
+                  />
+                  <div className="absolute bottom-2 left-2 bg-black bg-opacity-75 text-white text-xs px-2 py-1 rounded">
+                    {frame.timestamp.toFixed(1)}s
+                  </div>
+                  {frame.dogs_detected > 0 && (
+                    <div className="absolute top-2 right-2 bg-green-500 text-white text-xs px-2 py-1 rounded">
+                      {frame.dogs_detected} dog{frame.dogs_detected > 1 ? 's' : ''}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            
+            <p className="text-sm text-gray-700 leading-relaxed">
+              {moment.description}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// Visual Timeline Component
+const KeyMomentsTimeline = ({ keyMoments, audioEvents, videoDuration }) => {
+  const moments = parseKeyMoments(keyMoments);
+  
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const getPositionPercent = (time) => (time / videoDuration) * 100;
+
+  return (
+    <div className="card p-6">
+      <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+        <Clock className="h-5 w-5 mr-2 text-green-600" />
+        Behavioral Timeline
+      </h2>
+      
+      <div className="relative">
+        {/* Timeline bar */}
+        <div className="relative h-12 bg-gray-100 rounded-lg mb-6">
+          {/* Time markers */}
+          <div className="absolute inset-0 flex items-center justify-between px-2 text-xs text-gray-500">
+            <span>0:00</span>
+            <span>{formatTime(videoDuration)}</span>
+          </div>
+          
+          {/* Audio events */}
+          {audioEvents.map((event, index) => (
+            <div
+              key={index}
+              className={`absolute top-1 w-2 h-2 rounded-full ${
+                event.event_type === 'growl' ? 'bg-red-500' : 
+                event.event_type === 'bark' ? 'bg-orange-500' : 'bg-yellow-500'
+              }`}
+              style={{ left: `${getPositionPercent(event.timestamp)}%` }}
+              title={`${event.event_type} at ${event.timestamp}s`}
+            />
+          ))}
+          
+          {/* Key moments */}
+          {moments.map((moment, index) => (
+            <div
+              key={index}
+              className="absolute top-0 h-full"
+              style={{
+                left: `${getPositionPercent(moment.startTime)}%`,
+                width: `${getPositionPercent(moment.endTime - moment.startTime) || 2}%`
+              }}
+            >
+              <div className="h-full bg-blue-500 bg-opacity-30 border-l-2 border-blue-500 rounded-r">
+                <div className="absolute -top-8 left-0 bg-blue-600 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+                  Moment {index + 1}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+        
+        {/* Legend */}
+        <div className="flex flex-wrap items-center space-x-6 text-sm">
+          <div className="flex items-center space-x-2">
+            <div className="w-3 h-3 bg-blue-500 bg-opacity-30 border-l-2 border-blue-500"></div>
+            <span className="text-gray-600">Key Moments</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+            <span className="text-gray-600">Growls</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+            <span className="text-gray-600">Barks</span>
+          </div>
+        </div>
+        
+        {/* Key moments descriptions */}
+        <div className="mt-6 space-y-4">
+          {moments.map((moment, index) => (
+            <div key={index} className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg">
+              <div className="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-medium">
+                {index + 1}
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center space-x-2 mb-1">
+                  <span className="font-medium text-gray-900">
+                    {moment.startTime === moment.endTime 
+                      ? `${moment.startTime}s` 
+                      : `${moment.startTime}s - ${moment.endTime}s`}
+                  </span>
+                  <Play className="h-4 w-4 text-gray-400" />
+                </div>
+                <p className="text-gray-700 text-sm leading-relaxed">
+                  {moment.description}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const VideoDetails = () => {
   const { id } = useParams();
@@ -223,11 +437,21 @@ const VideoDetails = () => {
       )}
 
       {analysis && analysis.key_moments && (
-        <div className="card p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Key Moments</h2>
-          <p className="text-gray-700 leading-relaxed">
-            {analysis.key_moments}
-          </p>
+        <div className="space-y-6">
+          {/* Key Moments Frames Gallery */}
+          <KeyMomentsFrames 
+            keyMoments={analysis.key_moments} 
+            frames={frames} 
+            videoId={id}
+            videoDuration={video.duration}
+          />
+          
+          {/* Visual Timeline */}
+          <KeyMomentsTimeline 
+            keyMoments={analysis.key_moments}
+            audioEvents={audio_events}
+            videoDuration={video.duration}
+          />
         </div>
       )}
 
