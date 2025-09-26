@@ -247,6 +247,39 @@ def get_frame_image(video_id, frame_id):
             'error': str(e)
         }), 500
 
+@app.route('/api/videos/<int:video_id>/video', methods=['GET'])
+def get_video_file(video_id):
+    """Serve video file for playback"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('SELECT filepath FROM videos WHERE id = ?', (video_id,))
+        result = cursor.fetchone()
+        conn.close()
+        
+        if not result:
+            return jsonify({
+                'success': False,
+                'error': 'Video not found'
+            }), 404
+        
+        video_path = result[0]
+        
+        if not os.path.exists(video_path):
+            return jsonify({
+                'success': False,
+                'error': 'Video file not found'
+            }), 404
+        
+        return send_file(video_path, mimetype='video/mp4')
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @app.route('/api/upload', methods=['POST'])
 def upload_video():
     """Upload and process new video"""

@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PackLens Interactive Key Moments Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .timeline-bar {
+            background: linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 100%);
+        }
+        .video-placeholder {
+            background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold text-gray-900 mb-8">🎬 PackLens Interactive Key Moments Demo</h1>
+        
+        <!-- Video Player -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+            <h2 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <svg class="h-5 w-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h8m-9-4V8a2 2 0 012-2h8a2 2 0 012 2v2M7 16h10"></path>
+                </svg>
+                Video Player
+                <span id="current-segment" class="ml-2 text-sm text-gray-600"></span>
+            </h2>
+            
+            <div class="relative video-placeholder rounded-lg overflow-hidden">
+                <div class="w-full h-64 flex items-center justify-center">
+                    <div class="text-center text-white">
+                        <svg class="h-16 w-16 mx-auto mb-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h8m-9-4V8a2 2 0 012-2h8a2 2 0 012 2v2M7 16h10"></path>
+                        </svg>
+                        <h3 class="text-lg font-semibold mb-2">Video Player</h3>
+                        <p id="player-status" class="text-sm text-gray-300 mb-4">
+                            Click a key moment below to play that segment
+                        </p>
+                        <div id="playing-indicator" class="bg-blue-600 text-white px-4 py-2 rounded-lg inline-block hidden">
+                            🎬 Playing Key Moment
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="segment-overlay" class="absolute top-2 left-2 bg-blue-600 text-white text-xs px-2 py-1 rounded hidden">
+                    Key Moment: 1.5s - 4.5s
+                </div>
+            </div>
+            
+            <div class="mt-4 flex items-center justify-between">
+                <div class="text-sm text-gray-600">
+                    Current time: <span id="current-time">0.0</span>s
+                </div>
+                <div id="moment-description" class="text-sm text-blue-600 font-medium"></div>
+            </div>
+        </div>
+
+        <!-- Interactive Key Moments -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+            <h2 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <svg class="h-5 w-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                </svg>
+                Interactive Key Moments
+            </h2>
+            
+            <div class="space-y-4">
+                <!-- Moment 1 -->
+                <div class="border-l-4 border-blue-500 pl-4 cursor-pointer hover:bg-blue-50 p-3 rounded-r-lg transition-colors moment-card" 
+                     data-start="1.5" data-end="4.5" data-description="Initial growls with dogs in alert standing positions, showing early warning signals as they face each other closely.">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center space-x-2">
+                            <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded">Moment 1</span>
+                            <span class="text-sm text-gray-600">1.5s - 4.5s</span>
+                        </div>
+                        <button class="flex items-center space-x-1 text-blue-600 hover:text-blue-800 text-sm font-medium">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h8m-9-4V8a2 2 0 012-2h8a2 2 0 012 2v2M7 16h10"></path>
+                            </svg>
+                            <span>Play Segment</span>
+                        </button>
+                    </div>
+                    <p class="text-sm text-gray-700 leading-relaxed">
+                        Initial growls with dogs in alert standing positions (Frames 3 and 4), showing early warning signals as they face each other closely.
+                    </p>
+                </div>
+                
+                <!-- Moment 2 -->
+                <div class="border-l-4 border-blue-500 pl-4 cursor-pointer hover:bg-blue-50 p-3 rounded-r-lg transition-colors moment-card"
+                     data-start="7.5" data-end="13.5" data-description="Sustained growls escalating in frequency, with tails raised and mouths open, indicating building territorial tension among the group.">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center space-x-2">
+                            <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded">Moment 2</span>
+                            <span class="text-sm text-gray-600">7.5s - 13.5s</span>
+                        </div>
+                        <button class="flex items-center space-x-1 text-blue-600 hover:text-blue-800 text-sm font-medium">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h8m-9-4V8a2 2 0 012-2h8a2 2 0 012 2v2M7 16h10"></path>
+                            </svg>
+                            <span>Play Segment</span>
+                        </button>
+                    </div>
+                    <p class="text-sm text-gray-700 leading-relaxed">
+                        Sustained growls escalating in frequency (Frames 1 and 5), with tails raised and mouths open, indicating building territorial tension among the group.
+                    </p>
+                </div>
+                
+                <!-- Moment 3 -->
+                <div class="border-l-4 border-blue-500 pl-4 cursor-pointer hover:bg-blue-50 p-3 rounded-r-lg transition-colors moment-card"
+                     data-start="16.5" data-end="16.5" data-description="Transition to a bark marking a peak in vocal expression as dogs maintain proximity without retreating.">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center space-x-2">
+                            <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded">Moment 3</span>
+                            <span class="text-sm text-gray-600">16.5s</span>
+                        </div>
+                        <button class="flex items-center space-x-1 text-blue-600 hover:text-blue-800 text-sm font-medium">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h8m-9-4V8a2 2 0 012 2v2M7 16h10"></path>
+                            </svg>
+                            <span>Play Segment</span>
+                        </button>
+                    </div>
+                    <p class="text-sm text-gray-700 leading-relaxed">
+                        Transition to a bark (possibly Frame 2 context), marking a peak in vocal expression as dogs maintain proximity without retreating.
+                    </p>
+                </div>
+            </div>
+            
+            <div class="mt-4 p-3 bg-blue-50 rounded-lg">
+                <p class="text-sm text-blue-800">
+                    💡 <strong>Tip:</strong> Click on any key moment above to play that specific video segment and see the exact behavioral context.
+                </p>
+            </div>
+        </div>
+
+        <!-- Interactive Timeline -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h2 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <svg class="h-5 w-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                Interactive Behavioral Timeline
+            </h2>
+            
+            <div class="relative">
+                <!-- Timeline bar -->
+                <div class="relative h-12 timeline-bar rounded-lg mb-6 cursor-pointer" id="timeline">
+                    <!-- Time markers -->
+                    <div class="absolute inset-0 flex items-center justify-between px-2 text-xs text-gray-500 pointer-events-none">
+                        <span>0:00</span>
+                        <span>0:22</span>
+                    </div>
+                    
+                    <!-- Current time indicator -->
+                    <div id="time-indicator" class="absolute top-0 w-1 h-full bg-green-500 rounded-full z-10 hidden" style="left: 0%">
+                        <div class="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-green-600 text-white text-xs px-1 py-0.5 rounded whitespace-nowrap">
+                            0:00
+                        </div>
+                    </div>
+                    
+                    <!-- Audio events -->
+                    <div class="absolute top-1 w-2 h-2 rounded-full bg-red-500" style="left: 7%" title="Growl at 1.5s"></div>
+                    <div class="absolute top-1 w-2 h-2 rounded-full bg-red-500" style="left: 20%" title="Growl at 4.5s"></div>
+                    <div class="absolute top-1 w-2 h-2 rounded-full bg-red-500" style="left: 34%" title="Growl at 7.5s"></div>
+                    <div class="absolute top-1 w-2 h-2 rounded-full bg-red-500" style="left: 48%" title="Growl at 10.5s"></div>
+                    <div class="absolute top-1 w-2 h-2 rounded-full bg-red-500" style="left: 61%" title="Growl at 13.5s"></div>
+                    <div class="absolute top-1 w-2 h-2 rounded-full bg-orange-500" style="left: 75%" title="Bark at 16.5s"></div>
+                    
+                    <!-- Key moments -->
+                    <div class="absolute top-0 h-full bg-blue-500 bg-opacity-30 border-l-2 border-blue-500 rounded-r moment-zone" 
+                         style="left: 7%; width: 13%;" data-start="1.5" data-end="4.5">
+                        <div class="absolute -top-8 left-0 bg-blue-600 text-white text-xs px-2 py-1 rounded whitespace-nowrap">Moment 1</div>
+                    </div>
+                    <div class="absolute top-0 h-full bg-blue-500 bg-opacity-30 border-l-2 border-blue-500 rounded-r moment-zone" 
+                         style="left: 34%; width: 27%;" data-start="7.5" data-end="13.5">
+                        <div class="absolute -top-8 left-0 bg-blue-600 text-white text-xs px-2 py-1 rounded whitespace-nowrap">Moment 2</div>
+                    </div>
+                    <div class="absolute top-0 h-full bg-blue-500 bg-opacity-30 border-l-2 border-blue-500 rounded-r moment-zone" 
+                         style="left: 75%; width: 2%;" data-start="16.5" data-end="16.5">
+                        <div class="absolute -top-8 left-0 bg-blue-600 text-white text-xs px-2 py-1 rounded whitespace-nowrap">Moment 3</div>
+                    </div>
+                </div>
+                
+                <!-- Legend -->
+                <div class="flex flex-wrap items-center space-x-6 text-sm mb-6">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-3 h-3 bg-blue-500 bg-opacity-30 border-l-2 border-blue-500"></div>
+                        <span class="text-gray-600">Key Moments</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <div class="w-2 h-2 bg-red-500 rounded-full"></div>
+                        <span class="text-gray-600">Growls</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <div class="w-2 h-2 bg-orange-500 rounded-full"></div>
+                        <span class="text-gray-600">Barks</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <div class="w-1 h-3 bg-green-500 rounded-full"></div>
+                        <span class="text-gray-600">Current Time</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mt-8 p-4 bg-green-50 rounded-lg">
+            <h3 class="font-semibold text-green-900 mb-2">🎯 Interactive Features Demo:</h3>
+            <ul class="text-sm text-green-800 space-y-1">
+                <li>• <strong>Click Key Moments</strong>: Click any moment card to "play" that video segment</li>
+                <li>• <strong>Timeline Interaction</strong>: Click on timeline zones to jump to specific moments</li>
+                <li>• <strong>Visual Feedback</strong>: See current segment info in the video player</li>
+                <li>• <strong>Behavioral Context</strong>: Each moment shows detailed behavioral analysis</li>
+                <li>• <strong>Audio Events</strong>: Red/orange dots show exact timing of growls and barks</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Interactive functionality
+        const momentCards = document.querySelectorAll('.moment-card');
+        const momentZones = document.querySelectorAll('.moment-zone');
+        const timeline = document.getElementById('timeline');
+        const playerStatus = document.getElementById('player-status');
+        const playingIndicator = document.getElementById('playing-indicator');
+        const segmentOverlay = document.getElementById('segment-overlay');
+        const currentSegment = document.getElementById('current-segment');
+        const momentDescription = document.getElementById('moment-description');
+        const currentTime = document.getElementById('current-time');
+        const timeIndicator = document.getElementById('time-indicator');
+
+        let currentMoment = null;
+        let playbackTime = 0;
+
+        function playMoment(startTime, endTime, description) {
+            currentMoment = { startTime, endTime, description };
+            
+            // Update UI
+            playerStatus.textContent = `Ready to play: ${startTime}s - ${endTime}s`;
+            playingIndicator.textContent = `🎬 Playing Key Moment: ${startTime}s - ${endTime}s`;
+            playingIndicator.classList.remove('hidden');
+            
+            segmentOverlay.textContent = `Key Moment: ${startTime}s - ${endTime}s`;
+            segmentOverlay.classList.remove('hidden');
+            
+            currentSegment.textContent = `Playing: ${startTime}s - ${endTime}s`;
+            momentDescription.textContent = description.substring(0, 100) + '...';
+            
+            // Simulate playback
+            playbackTime = parseFloat(startTime);
+            updateTimeIndicator();
+            
+            // Scroll to video player
+            document.querySelector('.video-placeholder').scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'center' 
+            });
+        }
+
+        function updateTimeIndicator() {
+            if (currentMoment) {
+                const progress = (playbackTime / 22) * 100; // 22 seconds total
+                timeIndicator.style.left = progress + '%';
+                timeIndicator.querySelector('div').textContent = formatTime(playbackTime);
+                timeIndicator.classList.remove('hidden');
+                currentTime.textContent = playbackTime.toFixed(1);
+            }
+        }
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        // Add click handlers to moment cards
+        momentCards.forEach(card => {
+            card.addEventListener('click', () => {
+                const startTime = card.dataset.start;
+                const endTime = card.dataset.end;
+                const description = card.dataset.description;
+                playMoment(startTime, endTime, description);
+            });
+        });
+
+        // Add click handlers to timeline zones
+        momentZones.forEach(zone => {
+            zone.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const startTime = zone.dataset.start;
+                const endTime = zone.dataset.end;
+                const description = `Key moment from ${startTime}s to ${endTime}s`;
+                playMoment(startTime, endTime, description);
+            });
+        });
+
+        // Timeline click handler
+        timeline.addEventListener('click', (e) => {
+            const rect = timeline.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const timelineWidth = rect.width;
+            const clickedTime = (clickX / timelineWidth) * 22; // 22 seconds total
+            
+            // Check if clicked time is within any moment
+            const moments = [
+                { start: 1.5, end: 4.5, desc: "Initial growls with alert positions" },
+                { start: 7.5, end: 13.5, desc: "Sustained growls escalating" },
+                { start: 16.5, end: 16.5, desc: "Transition to bark" }
+            ];
+            
+            const clickedMoment = moments.find(m => clickedTime >= m.start && clickedTime <= m.end);
+            if (clickedMoment) {
+                playMoment(clickedMoment.start, clickedMoment.end, clickedMoment.desc);
+            }
+        });
+    </script>
+</body>
+</html>

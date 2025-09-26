@@ -34,75 +34,147 @@ const parseKeyMoments = (keyMomentsText) => {
   return moments;
 };
 
-// Key Moments Frames Gallery Component
-const KeyMomentsFrames = ({ keyMoments, frames, videoId, videoDuration }) => {
-  const moments = parseKeyMoments(keyMoments);
-  
-  // Find frames that correspond to key moments
-  const getFramesForMoments = () => {
-    const keyFrames = [];
-    
-    moments.forEach((moment, momentIndex) => {
-      // Find frames within the time range
-      const relevantFrames = frames.filter(frame => 
-        frame.timestamp >= moment.startTime && frame.timestamp <= moment.endTime
-      ).slice(0, 3); // Limit to 3 frames per moment
+// Video Player Component for Key Moments
+const VideoPlayer = ({ videoId, videoFilename, currentSegment, onTimeUpdate }) => {
+  const videoRef = React.useRef(null);
+  const [isPlaying, setIsPlaying] = React.useState(false);
+  const [currentTime, setCurrentTime] = React.useState(0);
+
+  // Handle segment playback and general time updates
+  React.useEffect(() => {
+    if (videoRef.current) {
+      const video = videoRef.current;
+      let segmentTimeoutId = null;
       
-      if (relevantFrames.length > 0) {
-        keyFrames.push({
-          moment: moment,
-          momentIndex: momentIndex + 1,
-          frames: relevantFrames
-        });
+      const handleTimeUpdate = () => {
+        const time = video.currentTime;
+        setCurrentTime(time);
+        onTimeUpdate && onTimeUpdate(time);
+        
+        // If we're playing a segment and reached the end time, pause
+        if (currentSegment && time >= currentSegment.endTime - 0.1) {
+          video.pause();
+          setIsPlaying(false);
+        }
+      };
+      
+      const handlePlay = () => setIsPlaying(true);
+      const handlePause = () => setIsPlaying(false);
+      
+      // Add event listeners
+      video.addEventListener('timeupdate', handleTimeUpdate);
+      video.addEventListener('play', handlePlay);
+      video.addEventListener('pause', handlePause);
+      
+      // If we have a current segment, start playing it
+      if (currentSegment) {
+        const startSegmentPlayback = async () => {
+          try {
+            video.currentTime = currentSegment.startTime;
+            await video.play();
+            setIsPlaying(true);
+          } catch (error) {
+            console.log('Playback failed:', error);
+            setIsPlaying(false);
+          }
+        };
+        
+        // Small delay to ensure video is ready
+        segmentTimeoutId = setTimeout(startSegmentPlayback, 100);
       }
-    });
-    
-    return keyFrames;
-  };
+      
+      return () => {
+        video.removeEventListener('timeupdate', handleTimeUpdate);
+        video.removeEventListener('play', handlePlay);
+        video.removeEventListener('pause', handlePause);
+        if (segmentTimeoutId) {
+          clearTimeout(segmentTimeoutId);
+        }
+      };
+    }
+  }, [currentSegment, onTimeUpdate]);
 
-  const keyFrameGroups = getFramesForMoments();
+  return (
+    <div className="card p-6 mb-6">
+      <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+        <Play className="h-5 w-5 mr-2 text-green-600" />
+        Video Player
+        {currentSegment && (
+          <span className="ml-2 text-sm text-gray-600">
+            Playing: {currentSegment.startTime}s - {currentSegment.endTime}s
+          </span>
+        )}
+      </h2>
+      
+      <div className="relative bg-black rounded-lg overflow-hidden">
+        <video
+          ref={videoRef}
+          className="w-full h-64 object-contain"
+          controls
+          onPlay={() => setIsPlaying(true)}
+          onPause={() => setIsPlaying(false)}
+          onTimeUpdate={(e) => setCurrentTime(e.target.currentTime)}
+        >
+          <source src={`/api/videos/${videoId}/video`} type="video/mp4" />
+          Your browser does not support the video tag.
+        </video>
+        
+        {currentSegment && (
+          <div className="absolute top-2 left-2 bg-blue-600 text-white text-xs px-2 py-1 rounded">
+            Key Moment: {currentSegment.startTime}s - {currentSegment.endTime}s
+          </div>
+        )}
+      </div>
+      
+      <div className="mt-4 flex items-center justify-between">
+        <div className="text-sm text-gray-600">
+          Current time: {currentTime.toFixed(1)}s
+        </div>
+        {currentSegment && (
+          <div className="text-sm text-blue-600 font-medium">
+            {currentSegment.description.substring(0, 100)}...
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
-  if (keyFrameGroups.length === 0) return null;
+// Interactive Key Moments Component
+const InteractiveKeyMoments = ({ keyMoments, videoId, onMomentClick }) => {
+  const moments = parseKeyMoments(keyMoments);
+
+  if (moments.length === 0) return null;
 
   return (
     <div className="card p-6">
       <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
         <Image className="h-5 w-5 mr-2 text-blue-600" />
-        Key Moments Frames
+        Interactive Key Moments
       </h2>
       
-      <div className="space-y-6">
-        {keyFrameGroups.map(({ moment, momentIndex, frames: momentFrames }) => (
-          <div key={momentIndex} className="border-l-4 border-blue-500 pl-4">
-            <div className="flex items-center space-x-2 mb-3">
-              <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded">
-                Moment {momentIndex}
-              </span>
-              <span className="text-sm text-gray-600">
-                {moment.startTime === moment.endTime 
-                  ? `${moment.startTime}s` 
-                  : `${moment.startTime}s - ${moment.endTime}s`}
-              </span>
-            </div>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-3">
-              {momentFrames.map((frame, frameIndex) => (
-                <div key={frame.id} className="relative group">
-                  <img
-                    src={`/api/videos/${videoId}/frames/${frame.id}`}
-                    alt={`Frame at ${frame.timestamp}s`}
-                    className="w-full h-32 object-cover rounded-lg border border-gray-200 group-hover:border-blue-400 transition-colors"
-                  />
-                  <div className="absolute bottom-2 left-2 bg-black bg-opacity-75 text-white text-xs px-2 py-1 rounded">
-                    {frame.timestamp.toFixed(1)}s
-                  </div>
-                  {frame.dogs_detected > 0 && (
-                    <div className="absolute top-2 right-2 bg-green-500 text-white text-xs px-2 py-1 rounded">
-                      {frame.dogs_detected} dog{frame.dogs_detected > 1 ? 's' : ''}
-                    </div>
-                  )}
-                </div>
-              ))}
+      <div className="space-y-4">
+        {moments.map((moment, index) => (
+          <div 
+            key={index} 
+            className="border-l-4 border-blue-500 pl-4 cursor-pointer hover:bg-blue-50 p-3 rounded-r-lg transition-colors"
+            onClick={() => onMomentClick(moment)}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center space-x-2">
+                <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded">
+                  Moment {index + 1}
+                </span>
+                <span className="text-sm text-gray-600">
+                  {moment.startTime === moment.endTime 
+                    ? `${moment.startTime}s` 
+                    : `${moment.startTime}s - ${moment.endTime}s`}
+                </span>
+              </div>
+              <button className="flex items-center space-x-1 text-blue-600 hover:text-blue-800 text-sm font-medium">
+                <Play className="h-4 w-4" />
+                <span>Play Segment</span>
+              </button>
             </div>
             
             <p className="text-sm text-gray-700 leading-relaxed">
@@ -111,12 +183,18 @@ const KeyMomentsFrames = ({ keyMoments, frames, videoId, videoDuration }) => {
           </div>
         ))}
       </div>
+      
+      <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+        <p className="text-sm text-blue-800">
+          💡 <strong>Tip:</strong> Click on any key moment above to play that specific video segment and see the exact behavioral context.
+        </p>
+      </div>
     </div>
   );
 };
 
 // Visual Timeline Component
-const KeyMomentsTimeline = ({ keyMoments, audioEvents, videoDuration }) => {
+const KeyMomentsTimeline = ({ keyMoments, audioEvents, videoDuration, currentTime, onTimelineClick }) => {
   const moments = parseKeyMoments(keyMoments);
   
   const formatTime = (seconds) => {
@@ -136,12 +214,35 @@ const KeyMomentsTimeline = ({ keyMoments, audioEvents, videoDuration }) => {
       
       <div className="relative">
         {/* Timeline bar */}
-        <div className="relative h-12 bg-gray-100 rounded-lg mb-6">
+        <div 
+          className="relative h-12 bg-gray-100 rounded-lg mb-6 cursor-pointer"
+          onClick={(e) => {
+            if (onTimelineClick) {
+              const rect = e.currentTarget.getBoundingClientRect();
+              const clickX = e.clientX - rect.left;
+              const timelineWidth = rect.width;
+              const clickedTime = (clickX / timelineWidth) * videoDuration;
+              onTimelineClick(clickedTime);
+            }
+          }}
+        >
           {/* Time markers */}
-          <div className="absolute inset-0 flex items-center justify-between px-2 text-xs text-gray-500">
+          <div className="absolute inset-0 flex items-center justify-between px-2 text-xs text-gray-500 pointer-events-none">
             <span>0:00</span>
             <span>{formatTime(videoDuration)}</span>
           </div>
+          
+          {/* Current time indicator */}
+          {currentTime > 0 && (
+            <div
+              className="absolute top-0 w-1 h-full bg-green-500 rounded-full z-10"
+              style={{ left: `${getPositionPercent(currentTime)}%` }}
+            >
+              <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-green-600 text-white text-xs px-1 py-0.5 rounded whitespace-nowrap">
+                {formatTime(currentTime)}
+              </div>
+            </div>
+          )}
           
           {/* Audio events */}
           {audioEvents.map((event, index) => (
@@ -224,6 +325,8 @@ const VideoDetails = () => {
   const [videoData, setVideoData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [currentSegment, setCurrentSegment] = useState(null);
+  const [currentTime, setCurrentTime] = useState(0);
 
   useEffect(() => {
     const fetchVideoDetails = async () => {
@@ -246,6 +349,19 @@ const VideoDetails = () => {
 
     fetchVideoDetails();
   }, [id]);
+
+  const handleMomentClick = (moment) => {
+    setCurrentSegment(moment);
+    // Scroll to video player
+    const videoPlayer = document.querySelector('[data-video-player]');
+    if (videoPlayer) {
+      videoPlayer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
+  const handleTimeUpdate = (time) => {
+    setCurrentTime(time);
+  };
 
   if (loading) {
     return (
@@ -438,12 +554,21 @@ const VideoDetails = () => {
 
       {analysis && analysis.key_moments && (
         <div className="space-y-6">
-          {/* Key Moments Frames Gallery */}
-          <KeyMomentsFrames 
-            keyMoments={analysis.key_moments} 
-            frames={frames} 
+          {/* Video Player */}
+          <div data-video-player>
+            <VideoPlayer 
+              videoId={id}
+              videoFilename={video.filename}
+              currentSegment={currentSegment}
+              onTimeUpdate={handleTimeUpdate}
+            />
+          </div>
+          
+          {/* Interactive Key Moments */}
+          <InteractiveKeyMoments 
+            keyMoments={analysis.key_moments}
             videoId={id}
-            videoDuration={video.duration}
+            onMomentClick={handleMomentClick}
           />
           
           {/* Visual Timeline */}
@@ -451,6 +576,15 @@ const VideoDetails = () => {
             keyMoments={analysis.key_moments}
             audioEvents={audio_events}
             videoDuration={video.duration}
+            currentTime={currentTime}
+            onTimelineClick={(time) => {
+              // Find if clicked time is within any moment
+              const moments = parseKeyMoments(analysis.key_moments);
+              const clickedMoment = moments.find(m => time >= m.startTime && time <= m.endTime);
+              if (clickedMoment) {
+                handleMomentClick(clickedMoment);
+              }
+            }}
           />
         </div>
       )}
