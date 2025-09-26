@@ -15,3 +15,7 @@ accelerate
 # Audio processing
 librosa
 soundfile
+# Flask API Server
+flask
+flask-cors
+werkzeug
