@@ -1,0 +1,41 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Video files (demo outputs)
+*.mp4
+*.avi
+*.mov
+
+# Model files
+*.pt
+*.pth
+
+# Audio files
+*.wav
+*.mp3
+
+# Image files (test images)
+*.jpg
+*.jpeg
+*.png
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# API keys (security)
+.env
+*.key
