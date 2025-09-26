@@ -24,10 +24,30 @@ import uuid
 
 from video_processor import VideoProcessor, BackgroundProcessor
 
+# Custom JSON encoder to handle bytes and other non-serializable objects
+class SafeJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, bytes):
+            # Convert bytes to string, handling potential encoding issues
+            try:
+                return obj.decode('utf-8')
+            except UnicodeDecodeError:
+                return str(obj)[2:-1]  # Remove b' and ' from string representation
+        elif isinstance(obj, datetime):
+            return obj.isoformat()
+        return super().default(obj)
+
 # -------------------- Flask App Setup --------------------
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for frontend communication
+
+# Custom jsonify function that handles bytes and other non-serializable objects
+def safe_jsonify(data, status_code=200):
+    """Custom jsonify that handles bytes and other non-serializable objects"""
+    from flask import Response
+    json_str = json.dumps(data, cls=SafeJSONEncoder, indent=2)
+    return Response(json_str, status=status_code, mimetype='application/json')
 
 # Configuration
 UPLOAD_FOLDER = Path('uploads')
@@ -149,10 +169,10 @@ def get_video_details(video_id):
         video = cursor.fetchone()
         
         if not video:
-            return jsonify({
+            return safe_jsonify({
                 'success': False,
                 'error': 'Video not found'
-            }), 404
+            }, 404)
         
         # Get analysis results
         cursor.execute('SELECT * FROM analysis_results WHERE video_id = ?', (video_id,))
@@ -162,13 +182,22 @@ def get_video_details(video_id):
         cursor.execute('SELECT * FROM extracted_frames WHERE video_id = ? ORDER BY timestamp', (video_id,))
         frames = cursor.fetchall()
         
-        # Get audio events
+        # Get audio events and clean any bytes data
         cursor.execute('SELECT * FROM audio_events WHERE video_id = ? ORDER BY timestamp', (video_id,))
         audio_events = cursor.fetchall()
         
+        # Clean bytes data from audio_events
+        for event in audio_events:
+            for key, value in event.items():
+                if isinstance(value, bytes):
+                    try:
+                        event[key] = value.decode('utf-8')
+                    except UnicodeDecodeError:
+                        event[key] = str(value)[2:-1]  # Remove b' and '
+        
         conn.close()
         
-        return jsonify({
+        return safe_jsonify({
             'success': True,
             'video': video,
             'analysis': analysis,
@@ -177,10 +206,10 @@ def get_video_details(video_id):
         })
         
     except Exception as e:
-        return jsonify({
+        return safe_jsonify({
             'success': False,
             'error': str(e)
-        }), 500
+        }, 500)
 
 @app.route('/api/videos/<int:video_id>/frames/<int:frame_id>', methods=['GET'])
 def get_frame_image(video_id, frame_id):

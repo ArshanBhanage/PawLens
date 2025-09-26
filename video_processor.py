@@ -214,6 +214,17 @@ class DatabaseManager:
     
     def add_audio_event(self, video_id, timestamp, event_type, intensity, description):
         """Add audio event to database"""
+        # Validate and clean data types to prevent bytes serialization issues
+        if isinstance(intensity, bytes):
+            print(f"[Database] Warning: Converting bytes intensity to float: {intensity}")
+            intensity = 1.0  # Default fallback value
+        elif not isinstance(intensity, (int, float)):
+            print(f"[Database] Warning: Invalid intensity type {type(intensity)}, using default")
+            intensity = 1.0
+        
+        # Ensure intensity is a proper float
+        intensity = float(intensity)
+        
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
@@ -257,7 +268,7 @@ class FrameExtractor:
             self.yolo_model = None
             print("[FrameExtractor] YOLO not available - using motion detection only")
     
-    def extract_frames(self, video_path, video_id, max_frames=10):
+    def extract_frames(self, video_path, video_id, max_frames=25):
         """Extract key frames that capture most activity"""
         cap = cv2.VideoCapture(video_path)
         if not cap.isOpened():
@@ -274,8 +285,8 @@ class FrameExtractor:
         frame_scores = []
         prev_gray = None
         
-        # Sample frames throughout video
-        sample_interval = max(1, total_frames // (max_frames * 2))  # Sample more than needed
+        # Sample frames throughout video - more frequent sampling for better coverage
+        sample_interval = max(1, total_frames // (max_frames * 3))  # Sample 3x more than needed for better selection
         
         frame_idx = 0
         while True:
@@ -310,9 +321,34 @@ class FrameExtractor:
         
         cap.release()
         
-        # Select top frames based on activity score and dog presence
+        # Select top frames with better temporal distribution
+        # First, sort by combined score
         frame_scores.sort(key=lambda x: x['activity_score'] + (x['dogs_detected'] * 0.5), reverse=True)
-        selected_frames = frame_scores[:max_frames]
+        
+        # Select frames ensuring good temporal spread
+        selected_frames = []
+        used_timestamps = []
+        min_time_gap = duration / max_frames * 0.3  # Minimum 30% of ideal spacing
+        
+        for frame_data in frame_scores:
+            # Check if this frame is too close to already selected frames
+            too_close = any(abs(frame_data['timestamp'] - used_time) < min_time_gap 
+                          for used_time in used_timestamps)
+            
+            if not too_close or len(selected_frames) < max_frames // 2:
+                selected_frames.append(frame_data)
+                used_timestamps.append(frame_data['timestamp'])
+                
+                if len(selected_frames) >= max_frames:
+                    break
+        
+        # If we don't have enough frames, fill with remaining high-scoring frames
+        if len(selected_frames) < max_frames:
+            remaining_frames = [f for f in frame_scores if f not in selected_frames]
+            selected_frames.extend(remaining_frames[:max_frames - len(selected_frames)])
+        
+        # Sort selected frames by timestamp for chronological analysis
+        selected_frames.sort(key=lambda x: x['timestamp'])
         
         # Save selected frames
         for i, frame_data in enumerate(selected_frames):
@@ -479,7 +515,7 @@ class Grok4Analyzer:
             
             # Encode frames for API
             frame_data = []
-            for frame_info in extracted_frames[:5]:  # Limit to 5 frames for API efficiency
+            for frame_info in extracted_frames[:12]:  # Analyze 12 frames for detailed behavioral assessment
                 image_b64 = self._encode_image_to_base64(frame_info['path'])
                 frame_data.append({
                     "timestamp": frame_info['timestamp'],
@@ -536,13 +572,15 @@ class Grok4Analyzer:
         return f"""You are an expert dog behaviorist analyzing a video titled "{video_filename}" for a dog owner. 
 
 VIDEO CONTEXT:
-- Total frames analyzed: {len(extracted_frames)}
+- Total frames extracted: {len(extracted_frames)} (enhanced coverage)
+- Frames being analyzed: 12 key moments for detailed assessment
 - Audio events detected: {len(audio_events)}
+- Analysis covers the full video timeline with optimal temporal distribution
 
 AUDIO EVENTS:
 {audio_summary}
 
-Please provide a comprehensive behavioral analysis that a dog owner can easily understand and act upon.
+Please provide a comprehensive behavioral analysis based on this enhanced frame coverage that a dog owner can easily understand and act upon.
 
 PROVIDE ANALYSIS IN THIS EXACT FORMAT:
 
