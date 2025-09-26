@@ -2,9 +2,12 @@
 
 🐕 **Agentic multimodal dog-interaction assistant: video+audio → Positive/Neutral/Anxious + tip**
 
-## 🚀 Enhanced with Grok-4 Fast (FREE)
+## 🚀 Hybrid AI System: Local + Cloud
 
-Advanced AI-powered behavioral analysis using Grok-4 Fast via OpenRouter API for detailed dog behavior insights - completely free!
+**Fast Local Vision Models** + **Optional Cloud AI** for optimal performance:
+- **Local Mode**: CLIP + BLIP models (500ms response, no API needed)
+- **Cloud Mode**: Grok-4 Fast via OpenRouter (detailed analysis, free)
+- **Hybrid Mode**: Local speed + Cloud validation for critical situations
 
 ## Quickstart
 
@@ -22,26 +25,55 @@ export OPENROUTER_API_KEY="your_openrouter_api_key_here"
 
 ## Run Examples
 
-### 🔥 Grok-4 Enhanced Demo (FREE)
+### ⚡ Local Mode (FASTEST - No API Key Needed)
+```bash
+# Fast local analysis with CLIP + BLIP models
+python packlens_hybrid_demo.py --source walk.mp4 --mode local --save local_demo.mp4
+```
+
+### 🔥 Cloud Mode (Most Detailed)
 ```bash
 # Set up OpenRouter API key first
 export OPENROUTER_API_KEY="sk-or-v1-your_key_here"
 
-# Run enhanced analysis with Grok-4 Fast
+# Detailed cloud analysis with Grok-4 Fast
+python packlens_hybrid_demo.py --source walk.mp4 --mode cloud --save cloud_demo.mp4
+```
+
+### 🚀 Hybrid Mode (Best of Both)
+```bash
+# Local speed + cloud validation for critical situations
+export OPENROUTER_API_KEY="sk-or-v1-your_key_here"
+python packlens_hybrid_demo.py --source walk.mp4 --mode hybrid --save hybrid_demo.mp4
+```
+
+### 📊 Legacy Grok-4 Only Demo
+```bash
 python packlens_grok4_demo.py --source walk.mp4 --save grok4_demo.mp4
 ```
 
 ## Features
 
-### 🚀 Grok-4 Enhanced Demo (`packlens_grok4_demo.py`)
-- ✅ **YOLO dog detection**
+### ⚡ Hybrid Demo (`packlens_hybrid_demo.py`) - **RECOMMENDED**
+- ✅ **YOLO dog detection and tracking**
 - ✅ **Motion and proximity analysis**  
 - ✅ **Real-time behavioral classification**
-- 🔥 **Grok-4 Fast vision analysis (FREE)**
-- 🔥 **Advanced behavioral insights**
-- 🔥 **Detailed body language assessment**
-- 🔥 **AI-powered safety recommendations**
-- 🔥 **Enhanced visual interface**
+- 🚀 **Local Vision Models (CLIP + BLIP)**
+  - 500ms response time
+  - No API key required
+  - Runs offline
+- 🔥 **Optional Cloud Enhancement (Grok-4)**
+  - Detailed behavioral analysis
+  - Free tier available
+- 🎯 **Smart Mode Switching**
+  - Local: Fast everyday analysis
+  - Cloud: Detailed assessment when needed
+  - Hybrid: Best of both worlds
+
+### 📊 Legacy Grok-4 Demo (`packlens_grok4_demo.py`)
+- ✅ **Cloud-only analysis**
+- 🔥 **Grok-4 Fast vision analysis**
+- 🔥 **Detailed behavioral insights**
 
 ### 🤖 What Grok-4 Analyzes:
 1. **Body Language & Posture**: Ears, tail, stance analysis

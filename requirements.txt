@@ -5,3 +5,13 @@ moviepy==1.0.3
 imageio-ffmpeg
 requests
 pillow
+# Local Vision Models
+transformers
+torch
+torchvision
+sentence-transformers
+# Optional: for faster inference
+accelerate
+# Audio processing
+librosa
+soundfile

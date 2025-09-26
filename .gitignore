@@ -16,6 +16,7 @@ env/
 # Model files
 *.pt
 *.pth
+model_cache/
 
 # Audio files
 *.wav
